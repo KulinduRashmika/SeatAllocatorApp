@@ -39,38 +39,38 @@ export function buildExamPriorityList(exams: Exam[]): Exam[] {
   return pq.toArraySorted();
 }
 
-export function createRegistration(input: {
-  exam: Exam;
-  studentName: string;
-  regNo: string;
-  email: string;
-}): StudentRegistration {
-  const id = `R-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+export function createRegistration({ exam, studentName, regNo, email }: { exam: Exam; studentName: string; regNo: string; email: string }) {
+  if (exam.seatsAvailable <= 0) {
+    throw new Error("No seats available");
+  }
 
-  const reg: StudentRegistration = {
-    id,
-    examId: input.exam.id,
-    examName: input.exam.name,
-    studentName: input.studentName,
-    regNo: input.regNo,
-    email: input.email,
-    examType: input.exam.type,
-    paid: input.exam.type === "Exam", // exam => no payment
-    status: "Submitted",
+  // 🔥 Reduce seat
+  exam.seatsAvailable -= 1;
+
+  const registration: StudentRegistration = {
+    id: Date.now().toString(),
+    examId: exam.id,
+    examName: exam.name,
+    examType: exam.type,
+    studentName,
+    regNo,
+    email,
+    status: "UnderReview",
+    paid: false,
   };
 
-  registrations.set(id, reg);
+  registrations.set(registration.id, registration);
 
   // enqueue to waiting queue
-  const q = waitQueues.get(input.exam.id) ?? [];
-  q.push(id);
-  waitQueues.set(input.exam.id, q);
+  const q = waitQueues.get(exam.id) ?? [];
+  q.push(registration.id);
+  waitQueues.set(exam.id, q);
 
   // init linked list
-  if (!allocated.get(input.exam.id)) allocated.set(input.exam.id, new LinkedList());
-  if (!seatCounter.get(input.exam.id)) seatCounter.set(input.exam.id, 0);
+  if (!allocated.get(exam.id)) allocated.set(exam.id, new LinkedList());
+  if (!seatCounter.get(exam.id)) seatCounter.set(exam.id, 0);
 
-  return reg;
+  return registration;
 }
 
 export function markPaid(registrationId: string) {

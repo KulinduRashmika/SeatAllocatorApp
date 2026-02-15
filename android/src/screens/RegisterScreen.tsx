@@ -1,8 +1,17 @@
 import React, { useMemo, useState } from "react";
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ScrollView,
+} from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
 import { createRegistration } from "../utils/seatAllocator";
+import Ionicons from "react-native-vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
 
@@ -14,10 +23,24 @@ export default function RegisterScreen({ route, navigation }: Props) {
   const [studentName, setStudentName] = useState("");
   const [regNo, setRegNo] = useState("");
   const [email, setEmail] = useState("");
+  const [agreed, setAgreed] = useState(false);
+
+  const seatsLeft = exam.seatsAvailable;
+  const locked = seatsLeft === 0;
 
   const onSubmit = () => {
     if (!studentName || !regNo || !email) {
       Alert.alert("Missing fields", "Please fill all fields.");
+      return;
+    }
+
+    if (!agreed) {
+      Alert.alert("Confirmation Required", "Please agree to the guidelines.");
+      return;
+    }
+
+    if (locked) {
+      Alert.alert("Seats Full", "No seats available.");
       return;
     }
 
@@ -28,49 +51,211 @@ export default function RegisterScreen({ route, navigation }: Props) {
       email,
     });
 
-    if (isRepeat) {
-      navigation.replace("Payment", { exam, registrationId: registration.id });
-    } else {
-      navigation.replace("Status", { registrationId: registration.id });
-    }
+    Alert.alert("Success", "Registration completed!");
+
+   if (isRepeat) {
+  navigation.replace("Payment", {
+    exam,
+    registrationId: registration.id,
+  });
+} else {
+  navigation.replace("Status", {
+    exam,
+    registrationId: registration.id,
+  });
+}
+
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Register</Text>
-      <Text style={styles.exam}>{exam.name}</Text>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={24} color="#2563EB" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Exam Registration</Text>
+      </View>
 
-      <Text style={styles.label}>Student Name</Text>
-      <TextInput value={studentName} onChangeText={setStudentName} style={styles.input} placeholder="Full name" />
+      {/* Selected Exam Card */}
+      <View style={styles.examCard}>
+        <Text style={styles.examLabel}>SELECTED EXAMINATION</Text>
+        <Text style={styles.examTitle}>{exam.name}</Text>
 
-      <Text style={styles.label}>Registration No</Text>
-      <TextInput value={regNo} onChangeText={setRegNo} style={styles.input} placeholder="Eg: IT2020xxx" />
+        <View style={styles.examMetaRow}>
+          <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+          <Text style={styles.examMeta}>{exam.date}</Text>
+        </View>
 
-      <Text style={styles.label}>Email</Text>
-      <TextInput value={email} onChangeText={setEmail} style={styles.input} placeholder="example@mail.com" />
+        <View style={styles.examMetaRow}>
+          <Ionicons name="people-outline" size={16} color="#6B7280" />
+          <Text style={styles.examMeta}>
+            Seats Available: {exam.seatsAvailable}
+          </Text>
+        </View>
+      </View>
 
-      <TouchableOpacity style={styles.primaryBtn} onPress={onSubmit}>
-        <Text style={styles.primaryText}>{isRepeat ? "Continue to Payment" : "Submit"}</Text>
+      {/* Form */}
+      <Text style={styles.label}>Student Full Name</Text>
+      <TextInput
+        value={studentName}
+        onChangeText={setStudentName}
+        style={styles.input}
+        placeholder="Full Name"
+      />
+
+      <Text style={styles.label}>Registration Number</Text>
+      <TextInput
+        value={regNo}
+        onChangeText={setRegNo}
+        style={styles.input}
+        placeholder="IT2020XXX"
+      />
+
+      <Text style={styles.label}>Academic Email</Text>
+      <TextInput
+        value={email}
+        onChangeText={setEmail}
+        style={styles.input}
+        placeholder="example@mail.com"
+      />
+
+      {/* Agreement */}
+      <TouchableOpacity
+        style={styles.checkboxRow}
+        onPress={() => setAgreed(!agreed)}
+      >
+        <Ionicons
+          name={agreed ? "checkbox" : "square-outline"}
+          size={22}
+          color={agreed ? "#2563EB" : "#9CA3AF"}
+        />
+        <Text style={styles.checkboxText}>
+          I agree to the exam guidelines and policies.
+        </Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.secondaryText}>Back</Text>
+      {/* Submit Button */}
+      <TouchableOpacity
+        disabled={!agreed || locked}
+        style={[
+          styles.primaryBtn,
+          (!agreed || locked) && styles.disabledBtn,
+        ]}
+        onPress={onSubmit}
+      >
+        <Text style={styles.primaryText}>
+          {locked
+            ? "Seats Full"
+            : isRepeat
+            ? "Continue to Payment"
+            : "Complete Registration"}
+        </Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 18, paddingTop: 40 },
-  title: { fontSize: 24, fontWeight: "900", color: "#111827" },
-  exam: { marginTop: 8, color: "#2563EB", fontWeight: "800" },
-  label: { marginTop: 16, color: "#374151", fontWeight: "800" },
-  input: {
-    marginTop: 8, borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#F9FAFB"
+  container: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    paddingHorizontal: 18,
+    paddingTop: 50,
   },
-  primaryBtn: { marginTop: 22, backgroundColor: "#2563EB", padding: 14, borderRadius: 12, alignItems: "center" },
-  primaryText: { color: "white", fontWeight: "900", fontSize: 16 },
-  secondaryBtn: { marginTop: 14, padding: 12, borderRadius: 12, alignItems: "center", borderWidth: 1, borderColor: "#E5E7EB" },
-  secondaryText: { color: "#111827", fontWeight: "800" }
+
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#111827",
+    marginRight: 24,
+  },
+
+  examCard: {
+    backgroundColor: "#EFF6FF",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+  },
+
+  examLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#2563EB",
+    marginBottom: 6,
+  },
+
+  examTitle: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#111827",
+    marginBottom: 12,
+  },
+
+  examMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+
+  examMeta: {
+    marginLeft: 8,
+    color: "#6B7280",
+    fontWeight: "600",
+  },
+
+  label: {
+    marginTop: 14,
+    fontWeight: "800",
+    color: "#374151",
+  },
+
+  input: {
+    marginTop: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 18,
+  },
+
+  checkboxText: {
+    marginLeft: 10,
+    color: "#6B7280",
+    flex: 1,
+  },
+
+  primaryBtn: {
+    marginTop: 26,
+    backgroundColor: "#2563EB",
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+
+  disabledBtn: {
+    backgroundColor: "#D1D5DB",
+  },
+
+  primaryText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 16,
+  },
 });
