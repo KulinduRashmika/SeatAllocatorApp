@@ -2,8 +2,9 @@ import type { Exam } from "../types/models";
 
 export type RootStackParamList = {
   Splash: undefined;
-
   Dashboard: undefined;
+
+  AdminAddExam: undefined;
 
   ExamDetails: {
     exam: {

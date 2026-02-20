@@ -10,6 +10,7 @@ import RegisterScreen from "../screens/RegisterScreen";
 import PaymentScreen from "../screens/PaymentScreen";
 import StatusScreen from "../screens/StatusScreen";
 import SeatResultScreen from "../screens/SeatResultScreen";
+import AdminAddExamScreen from "../screens/AdminAddExamScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -24,6 +25,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="Status" component={StatusScreen} />
         <Stack.Screen name="SeatResult" component={SeatResultScreen} />
+        <Stack.Screen name="AdminAddExam" component={AdminAddExamScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
