@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,17 +7,49 @@ import {
   ScrollView,
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
 import type { RootStackParamList } from "../navigation/types";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ExamDetails">;
 
 export default function ExamDetailsScreen({ route, navigation }: Props) {
-  const { exam } = route.params;
+  const { exam: initialExam } = route.params;
 
-  const locked = exam.seatsAvailable === 0;
-  const totalSeats = 100;
-  const percentage = (exam.seatsAvailable / totalSeats) * 100;
+  // ✅ keep local exam state so we can refresh from backend
+  const [exam, setExam] = useState<any>(initialExam);
+
+  // ✅ refresh exam details when screen is focused (after register -> seats decrease)
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+
+      const load = async () => {
+        try {
+          const res = await fetch("http://192.168.1.4:8080/api/exams");
+          const data = await res.json();
+
+          if (!cancelled && Array.isArray(data)) {
+            const latest = data.find((e: any) => e?.id === initialExam?.id);
+            if (latest) setExam(latest);
+          }
+        } catch (e) {
+          // silent fail (keeps old data)
+        }
+      };
+
+      load();
+      return () => {
+        cancelled = true;
+      };
+    }, [initialExam?.id])
+  );
+
+  const seatsLeft = useMemo(() => exam?.seatsAvailable ?? 0, [exam]);
+  const totalSeats = useMemo(() => exam?.totalSeats ?? 0, [exam]);
+
+  const locked = seatsLeft <= 0;
+  const percentage = totalSeats > 0 ? (seatsLeft / totalSeats) * 100 : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
@@ -37,40 +69,49 @@ export default function ExamDetailsScreen({ route, navigation }: Props) {
         <Text style={styles.year}>ACADEMIC YEAR 2023/24</Text>
 
         {/* Title */}
-        <Text style={styles.title}>{exam.name}</Text>
+        <Text style={styles.title}>{exam?.name || "Exam"}</Text>
 
         {/* Tags */}
         <View style={styles.tagRow}>
           <View style={styles.tagBlue}>
-            <Text style={styles.tagBlueText}>{exam.type}</Text>
+            <Text style={styles.tagBlueText}>{exam?.type || "EXAM"}</Text>
           </View>
           <View style={styles.tagGreen}>
-            <Text style={styles.tagGreenText}>
-              {locked ? "Closed" : "Open"}
-            </Text>
+            <Text style={styles.tagGreenText}>{locked ? "Closed" : "Open"}</Text>
           </View>
         </View>
 
         {/* Info Grid */}
         <View style={styles.grid}>
           <View style={styles.card}>
+            <Text style={styles.cardLabel}>EXAM ID</Text>
+            <Text style={styles.cardValue}>{exam?.id ?? "Not Set"}</Text>
+          </View>
+
+          <View style={styles.card}>
             <Text style={styles.cardLabel}>DATE</Text>
-            <Text style={styles.cardValue}>{exam.date}</Text>
+            <Text style={styles.cardValue}>{exam?.date || "Not Set"}</Text>
           </View>
 
           <View style={styles.card}>
             <Text style={styles.cardLabel}>TIME</Text>
-            <Text style={styles.cardValue}>{exam.time}</Text>
+            <Text style={styles.cardValue}>{exam?.time || "Not Set"}</Text>
           </View>
 
           <View style={styles.card}>
             <Text style={styles.cardLabel}>CLOSING DATE</Text>
-            <Text style={styles.cardValue}>{exam.closing}</Text>
+            {/* backend sends JSON property "closing" */}
+            <Text style={styles.cardValue}>{exam?.closing || "Not Set"}</Text>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>PRIORITY</Text>
-            <Text style={styles.priority}>{exam.priority}</Text>
+            <Text style={styles.cardLabel}>TOTAL SEATS</Text>
+            <Text style={styles.cardValue}>{totalSeats || "Not Set"}</Text>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>NEXT SEAT NO</Text>
+            <Text style={styles.cardValue}>{exam?.nextSeatNumber ?? "Not Set"}</Text>
           </View>
         </View>
 
@@ -79,7 +120,7 @@ export default function ExamDetailsScreen({ route, navigation }: Props) {
           <View style={styles.seatRow}>
             <Text style={styles.seatTitle}>Available Seats</Text>
             <Text style={styles.seatCount}>
-              {exam.seatsAvailable} / {totalSeats}
+              {seatsLeft} / {totalSeats || 0}
             </Text>
           </View>
 
@@ -87,7 +128,7 @@ export default function ExamDetailsScreen({ route, navigation }: Props) {
             <View
               style={[
                 styles.progressFill,
-                { width: `${percentage}%` },
+                { width: `${Math.max(0, Math.min(100, percentage))}%` },
               ]}
             />
           </View>
@@ -203,10 +244,6 @@ const styles = StyleSheet.create({
   cardValue: {
     fontWeight: "700",
     color: "#111827",
-  },
-  priority: {
-    color: "#EA580C",
-    fontWeight: "800",
   },
 
   seatCard: {
