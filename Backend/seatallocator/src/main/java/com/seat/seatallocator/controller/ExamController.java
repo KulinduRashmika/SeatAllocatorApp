@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 
 @RestController
@@ -26,16 +27,23 @@ public class ExamController {
         return examService.getAllExams();
     }
 
-    // ✅ heap sorted list
     @GetMapping("/sorted-heap")
     public List<Exam> sortedHeap() {
         return examService.getExamsSortedByDateHeap();
     }
 
-    // ✅ register (availableSeats - 1)
+    // ✅ NEW REGISTER (JSON body)
     @PostMapping("/{id}/register")
-    public String register(@PathVariable Long id, @RequestParam String name) {
-        return examService.registerStudent(id, name);
+    public Map<String, Object> register(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body
+    ) {
+        return examService.registerStudent(
+                id,
+                body.get("studentName"),
+                body.get("regNo"),
+                body.get("email")
+        );
     }
 
     @GetMapping("/{id}/waitlist")
