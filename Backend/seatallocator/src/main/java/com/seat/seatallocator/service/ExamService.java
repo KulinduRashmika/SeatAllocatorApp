@@ -1,7 +1,9 @@
 package com.seat.seatallocator.service;
 
 import com.seat.seatallocator.entity.Exam;
+import com.seat.seatallocator.entity.Registration;
 import com.seat.seatallocator.repository.ExamRepository;
+import com.seat.seatallocator.repository.RegistrationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,8 +15,9 @@ import java.util.*;
 public class ExamService {
 
     private final ExamRepository examRepository;
+    private final RegistrationRepository registrationRepository;
 
-    // Waitlist queue per exam
+    // FIFO Waitlist per exam
     private final Map<Long, Queue<String>> waitlists = new HashMap<>();
 
     public Exam addExam(Exam exam) {
@@ -22,7 +25,6 @@ public class ExamService {
             throw new IllegalArgumentException("totalSeats must be > 0");
         }
 
-        // if app didn't send seatsAvailable, default to totalSeats
         if (exam.getAvailableSeats() <= 0) {
             exam.setAvailableSeats(exam.getTotalSeats());
         }
@@ -35,7 +37,7 @@ public class ExamService {
         return examRepository.findAll();
     }
 
-    // Heap: upcoming exams sorted by nearest date first
+    // Heap sorting
     public List<Exam> getExamsSortedByDateHeap() {
         PriorityQueue<Exam> heap = new PriorityQueue<>(
                 Comparator.comparing(Exam::getDate, Comparator.nullsLast(Comparator.naturalOrder()))
@@ -52,22 +54,55 @@ public class ExamService {
         return out;
     }
 
-    // Register student: allocate seat and decrement available seats
-    public String registerStudent(Long examId, String studentName) {
+    // ✅ FULL REGISTER (FIFO)
+    public Map<String, Object> registerStudent(
+            Long examId,
+            String studentName,
+            String regNo,
+            String email
+    ) {
 
         Exam exam = examRepository.findById(examId)
                 .orElseThrow(() -> new RuntimeException("Exam not found"));
 
+        Registration r = new Registration();
+        r.setExamId(examId);
+        r.setStudentName(studentName);
+        r.setRegNo(regNo);
+        r.setEmail(email);
+
         if (exam.getAvailableSeats() > 0) {
+
             int seatNumber = exam.getNextSeatNumber();
             exam.setNextSeatNumber(seatNumber + 1);
             exam.setAvailableSeats(exam.getAvailableSeats() - 1);
             examRepository.save(exam);
-            return "Seat Allocated: " + seatNumber;
+
+            r.setSeatNumber(seatNumber);
+            r.setStatus("ALLOCATED");
+            registrationRepository.save(r);
+
+            return Map.of(
+                    "registrationId", r.getId(),
+                    "message", "Seat Allocated: " + seatNumber,
+                    "seatNumber", seatNumber,
+                    "status", "ALLOCATED"
+            );
         }
 
+        // FIFO waitlist
         waitlists.computeIfAbsent(examId, k -> new LinkedList<>()).offer(studentName);
-        return "Seats Full. Added to Waitlist.";
+
+        r.setSeatNumber(null);
+        r.setStatus("WAITLISTED");
+        registrationRepository.save(r);
+
+        return Map.of(
+                "registrationId", r.getId(),
+                "message", "Seats Full. Added to Waitlist.",
+                "seatNumber", null,
+                "status", "WAITLISTED"
+        );
     }
 
     public Queue<String> getWaitlist(Long examId) {

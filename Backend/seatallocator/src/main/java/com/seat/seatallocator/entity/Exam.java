@@ -28,7 +28,6 @@ public class Exam {
 
     // UI uses "exam.type" and "exam.priority"
     private String type;      // "Exam" | "Batch Repeat" | "Special Repeat"
-    private String priority;  // "High" | "Normal" | "Low"
 
     private int totalSeats;
 
