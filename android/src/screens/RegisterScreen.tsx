@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../navigation/types";
-import { createRegistration } from "../utils/seatAllocator";
 import Ionicons from "react-native-vector-icons/Ionicons";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Register">;
@@ -24,12 +23,13 @@ export default function RegisterScreen({ route, navigation }: Props) {
   const [regNo, setRegNo] = useState("");
   const [email, setEmail] = useState("");
   const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const seatsLeft = exam.seatsAvailable;
-  const locked = seatsLeft === 0;
+  const seatsLeft = exam.seatsAvailable ?? 0;
+  const locked = seatsLeft <= 0;
 
-  const onSubmit = () => {
-    if (!studentName || !regNo || !email) {
+  const onSubmit = async () => {
+    if (!studentName.trim() || !regNo.trim() || !email.trim()) {
       Alert.alert("Missing fields", "Please fill all fields.");
       return;
     }
@@ -39,37 +39,56 @@ export default function RegisterScreen({ route, navigation }: Props) {
       return;
     }
 
+    // if locked, backend will queue them, but you asked to lock when full:
     if (locked) {
       Alert.alert("Seats Full", "No seats available.");
       return;
     }
 
-    const registration = createRegistration({
-      exam,
-      studentName,
-      regNo,
-      email,
-    });
+    try {
+      setLoading(true);
 
-    Alert.alert("Success", "Registration completed!");
+      // ✅ BACKEND FIFO SEAT ALLOCATION
+      // POST /api/exams/{id}/register?name=...
+      const url = `http://192.168.1.4:8080/api/exams/${exam.id}/register?name=${encodeURIComponent(
+        studentName.trim()
+      )}`;
 
-   if (isRepeat) {
-  navigation.replace("Payment", {
-    exam,
-    registrationId: registration.id,
-  });
-} else {
-  navigation.replace("Status", {
-    exam,
-    registrationId: registration.id,
-  });
-}
+      const res = await fetch(url, { method: "POST" });
+      const text = await res.text();
 
+      if (!res.ok) {
+        Alert.alert("Error", text || "Registration failed");
+        return;
+      }
+
+      // Example backend messages:
+      // "Seat Allocated: 1"
+      // "Seats Full. Added to Waitlist."
+      Alert.alert("Success", text);
+
+      // ✅ Keep your existing navigation flow
+      // (we no longer have local registrationId, so pass a simple string)
+      if (isRepeat) {
+        navigation.replace("Payment", {
+          exam,
+          registrationId: text, // reuse this field to avoid changing other screens
+        });
+      } else {
+        navigation.replace("Status", {
+          exam,
+          registrationId: text,
+        });
+      }
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -91,7 +110,7 @@ export default function RegisterScreen({ route, navigation }: Props) {
         <View style={styles.examMetaRow}>
           <Ionicons name="people-outline" size={16} color="#6B7280" />
           <Text style={styles.examMeta}>
-            Seats Available: {exam.seatsAvailable}
+            Seats Available: {exam.seatsAvailable ?? 0}
           </Text>
         </View>
       </View>
@@ -138,16 +157,18 @@ export default function RegisterScreen({ route, navigation }: Props) {
 
       {/* Submit Button */}
       <TouchableOpacity
-        disabled={!agreed || locked}
+        disabled={!agreed || locked || loading}
         style={[
           styles.primaryBtn,
-          (!agreed || locked) && styles.disabledBtn,
+          (!agreed || locked || loading) && styles.disabledBtn,
         ]}
         onPress={onSubmit}
       >
         <Text style={styles.primaryText}>
           {locked
             ? "Seats Full"
+            : loading
+            ? "Submitting..."
             : isRepeat
             ? "Continue to Payment"
             : "Complete Registration"}
@@ -164,13 +185,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 50,
   },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
   },
-
   headerTitle: {
     flex: 1,
     textAlign: "center",
@@ -179,46 +198,39 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginRight: 24,
   },
-
   examCard: {
     backgroundColor: "#EFF6FF",
     borderRadius: 16,
     padding: 18,
     marginBottom: 20,
   },
-
   examLabel: {
     fontSize: 12,
     fontWeight: "800",
     color: "#2563EB",
     marginBottom: 6,
   },
-
   examTitle: {
     fontSize: 18,
     fontWeight: "900",
     color: "#111827",
     marginBottom: 12,
   },
-
   examMetaRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 4,
   },
-
   examMeta: {
     marginLeft: 8,
     color: "#6B7280",
     fontWeight: "600",
   },
-
   label: {
     marginTop: 14,
     fontWeight: "800",
     color: "#374151",
   },
-
   input: {
     marginTop: 8,
     backgroundColor: "#FFFFFF",
@@ -228,19 +240,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 18,
   },
-
   checkboxText: {
     marginLeft: 10,
     color: "#6B7280",
     flex: 1,
   },
-
   primaryBtn: {
     marginTop: 26,
     backgroundColor: "#2563EB",
@@ -248,14 +257,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
   },
-
   disabledBtn: {
     backgroundColor: "#D1D5DB",
   },
-
   primaryText: {
     color: "#FFFFFF",
     fontWeight: "900",
     fontSize: 16,
   },
-});
+});  
