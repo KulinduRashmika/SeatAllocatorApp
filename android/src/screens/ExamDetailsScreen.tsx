@@ -26,7 +26,7 @@ export default function ExamDetailsScreen({ route, navigation }: Props) {
 
       const load = async () => {
         try {
-          const res = await fetch("http://192.168.1.4:8080/api/exams");
+          const res = await fetch("http://192.168.1.9:8080/api/exams");
           const data = await res.json();
 
           if (!cancelled && Array.isArray(data)) {

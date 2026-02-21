@@ -50,7 +50,7 @@ export default function RegisterScreen({ route, navigation }: Props) {
 
       // ✅ BACKEND FIFO SEAT ALLOCATION
       // POST /api/exams/{id}/register?name=...
-      const url = `http://192.168.1.4:8080/api/exams/${exam.id}/register?name=${encodeURIComponent(
+      const url = `http://192.168.1.9:8080/api/exams/${exam.id}/register?name=${encodeURIComponent(
         studentName.trim()
       )}`;
 

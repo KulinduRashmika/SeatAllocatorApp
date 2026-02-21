@@ -27,7 +27,7 @@ export default function DashboardScreen({ navigation }: Props) {
   const [adminPassword, setAdminPassword] = useState("");
 
   useEffect(() => {
-    fetch("http://192.168.1.4:8080/api/exams/sorted-heap")
+    fetch("http://192.168.1.9:8080/api/exams/sorted-heap")
       .then((res) => res.json())
       .then((data) => {
         console.log("API DATA:", data);
